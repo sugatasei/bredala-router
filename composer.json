@@ -1,6 +1,6 @@
 {
     "name": "sugatasei/bredala-router",
-    "description": "Fast request router for PHP",
+    "description": "PHP object-oriented layer for the HTTP specification",
     "license": "MIT",
     "authors": [
         {
