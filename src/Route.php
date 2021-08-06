@@ -6,12 +6,12 @@ class Route
 {
     public string $uri;
     public $callback;
-    public array $matches = [];
+    public array $arguments = [];
 
-    public function __construct(string $uri, $callback, array $matches = [])
+    public function __construct(string $uri, $callback, array $arguments = [])
     {
         $this->uri = $uri;
         $this->callback = $callback;
-        $this->matches = $matches;
+        $this->arguments = $arguments;
     }
 }
