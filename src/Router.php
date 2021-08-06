@@ -9,7 +9,7 @@ namespace Bredala\Router;
  */
 class Router
 {
-    private Runner $runner;
+    private RunnerInterface $runner;
     private array $wildcards;
     private array $routes = [];
     public array $route = [];
