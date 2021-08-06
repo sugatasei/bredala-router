@@ -9,23 +9,29 @@ namespace Bredala\Router;
  */
 class Router
 {
-    private array $wildcards = [
-        'all' => '(.*)',
-        'any' => '([^/]+)',
-        'num' => '(-?[0-9]+)',
-        'hex' => '([A-Fa-f0-9]+)',
-        'uuid' => '([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})'
-    ];
-
-    /**
-     * @var array
-     */
+    private Runner $runner;
+    private array $wildcards;
     private array $routes = [];
+    public array $route = [];
+
+    // -------------------------------------------------------------------------
 
     /**
-     * @var string
+     * @param RunnerInterface|null $runner
      */
-    private string $group = '';
+    public function __construct(?RunnerInterface $runner = null)
+    {
+        $this->runner = $runner ?? new Runner;
+
+        $this->wildcards = [
+            'all' => '(.*)',
+            'any' => '([^/]+)',
+            'num' => '(-?[0-9]+)',
+            'hex' => '([A-Fa-f0-9]+)',
+            'uuid' => '([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})',
+        ];
+    }
+
 
     // -------------------------------------------------------------------------
 
@@ -42,155 +48,188 @@ class Router
         return $this;
     }
 
+    // -------------------------------------------------------------------------
+
     /**
-     * @param string $httpMethod
+     * @param string $method
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
      * @return Router
      */
-    public function add(string $httpMethod, string $uri, callable $callback): Router
+    public function add(string $method, string $uri, $callback, array $params = []): Router
     {
-        $this->routes[$httpMethod][$this->group . $uri] = $callback;
+        $this->routes[$method][$uri] = [
+            'uri' => self::normalizeUri($uri),
+            'callback' => $callback,
+            'params' => $this->parseParams($params),
+        ];
+
         return $this;
     }
 
     /**
-     * Current group
-     *
-     * @param string $group Uri prefix
+     * @param string $uri
+     * @param mixed $callback
+     * @param array $params
+     * @return Router
      */
-    public function group(string $group = ''): Router
+    public function get(string $uri, $callback, array $params = []): Router
     {
-        $this->group = $group;
-        return $this;
+        return $this->add('GET', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function get(string $uri, callable $callback): Router
+    public function post(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('GET', $uri, $callback);
+        return $this->add('POST', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function post(string $uri, callable $callback): Router
+    public function put(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('POST', $uri, $callback);
+        return $this->add('PUT', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function put(string $uri, callable $callback): Router
+    public function patch(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('PUT', $uri, $callback);
+        return $this->add('PATCH', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function patch(string $uri, callable $callback): Router
+    public function delete(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('PATCH', $uri, $callback);
+        return $this->add('DELETE', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function delete(string $uri, callable $callback): Router
+    public function options(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('DELETE', $uri, $callback);
+        return $this->add('OPTIONS', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function options(string $uri, callable $callback): Router
+    public function head(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('OPTIONS', $uri, $callback);
+        return $this->add('HEAD', $uri, $callback, $params);
     }
 
     /**
      * @param string $uri
-     * @param callable $callback
+     * @param mixed $callback
+     * @param array $params
      * @return Router
      */
-    public function head(string $uri, callable $callback): Router
+    public function cli(string $uri, $callback, array $params = []): Router
     {
-        return $this->add('HEAD', $uri, $callback);
-    }
-
-    /**
-     * @param string $uri
-     * @param callable $callback
-     * @return Router
-     */
-    public function cli(string $uri, callable $callback): Router
-    {
-        return $this->add('CLI', $uri, $callback);
+        return $this->add('CLI', $uri, $callback, $params);
     }
 
     // -------------------------------------------------------------------------
 
-    /**
-     * @param string $httpMethod
-     * @param string $uriPath
-     */
-    public function run(string $httpMethod, string $uriPath)
+    public function run(string $method, string $uri)
     {
-        // Method not found
-        if (!isset($this->routes[$httpMethod])) {
-            throw new RouterException("Route not found: {$httpMethod} {$uriPath}", 404);
+        $uri = self::normalizeUri($uri);
+
+        if (!isset($this->routes[$method])) {
+            throw new RouterException('No matching routes');
         }
 
-        // Exact match
-        if (isset($this->routes[$httpMethod][$uriPath]) && mb_strpos($uriPath, '{') === false) {
-            return call_user_func($this->routes[$httpMethod][$uriPath]);
+        if (($route = $this->routes[$method][$uri] ?? null)) {
+            return $this->runner->run(new Route($route['uri'], $route['callback']));
         }
 
-        // Regex match
-        $search = [];
-        $replace = [];
-        foreach ($this->wildcards as $k => $v) {
-            $search[] = '\{' . $k . '\}';
-            $replace[] = $v;
-        }
+        foreach ($this->routes[$method] as $r) {
 
-        foreach ($this->routes[$httpMethod] as $u => $callback) {
-            if (mb_strpos($u, '{') !== false) {
-                $matches = [];
-                $pattern = '#^' . str_replace($search, $replace, preg_quote($u, '#')) . '$#';
+            $this->route = $r;
 
-                if (preg_match($pattern, $uriPath, $matches)) {
-                    return call_user_func_array($callback, self::getParams($matches));
-                }
+            if (($route = $this->match($uri))) {
+                return $this->runner->run($route);
             }
         }
 
-        // Not found
-        throw new RouterException("Route not found: {$httpMethod} {$uriPath}", 404);
+        throw new RouterException('No matching routes');
+    }
+
+    // -------------------------------------------------------------------------
+
+    protected static function normalizeUri(string $uri): string
+    {
+        return trim($uri, '/');
+    }
+
+    private function parseParams(array $params): array
+    {
+        foreach ($params as $name => $regex) {
+            $regex = $this->wildcards[$regex] ?? $regex;
+            $params[$name] = str_replace('(', '(?:', $regex);
+        }
+
+        return $params;
+    }
+
+    private function match(string $uri): ?Route
+    {
+        $matches = [];
+        if (!preg_match($this->buildRegex(), $uri, $matches)) {
+            return null;
+        }
+
+        $matches = self::buildMatches($matches);
+
+        return new Route($this->route['uri'], $this->route['callback'], $matches);
+    }
+
+    private function buildRegex()
+    {
+        $regex = $this->route['uri'];
+        $regex = str_replace('#', "\#", $regex);
+        $regex = preg_replace_callback('#:([\w]+)#', [$this, 'paramMatch'], $regex);
+        $regex = "#^{$regex}$#i";
+
+        return $regex;
+    }
+
+    private function paramMatch(array $matches): string
+    {
+        return '(' . ($this->route['params'][$matches[1]] ?? '[^/]+') . ')';
     }
 
     /**
      * @param array $matches
      * @return array
      */
-    private static function getParams(array $matches): array
+    private static function buildMatches(array $matches): array
     {
         array_shift($matches);
 
@@ -203,6 +242,4 @@ class Router
 
         return $params;
     }
-
-    // -------------------------------------------------------------------------
 }
