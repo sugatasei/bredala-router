@@ -157,6 +157,20 @@ class Router
 
     // -------------------------------------------------------------------------
 
+    public function uris(): array
+    {
+        $uris = [];
+        foreach ($this->routes as $method => $routes) {
+            foreach ($routes as $uri => $item) {
+                $uris[$method][] =  $uri;
+            }
+        }
+
+        return $uris;
+    }
+
+    // -------------------------------------------------------------------------
+
     public function run(string $method, string $uri)
     {
         $uri = self::normalizeUri($uri);
