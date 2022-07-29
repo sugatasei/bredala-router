@@ -9,20 +9,14 @@ namespace Bredala\Router;
  */
 class Router
 {
-    private RunnerInterface $runner;
     private array $wildcards;
     private array $routes = [];
     public array $route = [];
 
     // -------------------------------------------------------------------------
 
-    /**
-     * @param RunnerInterface|null $runner
-     */
-    public function __construct(?RunnerInterface $runner = null)
+    public function __construct()
     {
-        $this->runner = $runner ?? new Runner;
-
         $this->wildcards = [
             'all' => '(.*)',
             'any' => '([^/]+)',
@@ -171,7 +165,7 @@ class Router
 
     // -------------------------------------------------------------------------
 
-    public function run(string $method, string $uri)
+    public function find(string $method, string $uri): Route
     {
         $uri = self::normalizeUri($uri);
 
@@ -180,7 +174,7 @@ class Router
         }
 
         if (($route = $this->routes[$method][$uri] ?? null)) {
-            return $this->runner->run(new Route($route['uri'], $route['callback']));
+            return new Route($route['uri'], $route['callback']);
         }
 
         foreach ($this->routes[$method] as $r) {
@@ -188,7 +182,7 @@ class Router
             $this->route = $r;
 
             if (($route = $this->match($uri))) {
-                return $this->runner->run($route);
+                return $route;
             }
         }
 
