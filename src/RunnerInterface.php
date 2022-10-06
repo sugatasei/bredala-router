@@ -9,5 +9,5 @@ interface RunnerInterface
      * @throws RouterException
      * @return void
      */
-    public function run(Route $route);
+    public static function run(Route $route);
 }

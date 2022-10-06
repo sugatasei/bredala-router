@@ -9,23 +9,20 @@ namespace Bredala\Router;
  */
 class Router
 {
-    private array $wildcards;
+    private array $wildcards = [
+        '{all}' => '(.*)',
+        '{any}' => '([^/]+)',
+        '{int}' => '([+-]?[0-9]+)',
+        '{float}' => '([+-]?[0-9]+(?:[.][0-9]+)?)',
+        '{id}' => '([1-9][0-9]*)',
+        '{hex}' => '([A-Fa-f0-9]+)',
+        '{uuid}' => '([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})',
+    ];
+
+    /**
+     * @var Route[]
+     */
     private array $routes = [];
-    public array $route = [];
-
-    // -------------------------------------------------------------------------
-
-    public function __construct()
-    {
-        $this->wildcards = [
-            'all' => '(.*)',
-            'any' => '([^/]+)',
-            'num' => '(-?[0-9]+)',
-            'hex' => '([A-Fa-f0-9]+)',
-            'uuid' => '([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})',
-        ];
-    }
-
 
     // -------------------------------------------------------------------------
 
@@ -34,11 +31,13 @@ class Router
      *
      * @param string $shortcut The wildcard name
      * @param string $pattern Regex
-     * @return Router
+     * @return static
      */
-    public function wildcard(string $shortcut, string $pattern): Router
+    public function wildcard(string $shortcut, string $pattern): static
     {
+        $shortcut = '{' . trim($shortcut, '{}') . '}';
         $this->wildcards[$shortcut] = $pattern;
+
         return $this;
     }
 
@@ -48,15 +47,12 @@ class Router
      * @param string $method
      * @param string $uri
      * @param mixed $callback
-     * @return Router
+     * @return static
      */
-    public function add(string $method, string $uri, $callback, array $params = []): Router
+    public function add(string $method, string $uri, mixed $callback): static
     {
-        $this->routes[$method][$uri] = [
-            'uri' => self::normalizeUri($uri),
-            'callback' => $callback,
-            'params' => $this->parseParams($params),
-        ];
+        $uri = self::normalizeUri($uri);
+        $this->routes[$method][$uri] = new Route($uri, $callback);
 
         return $this;
     }
@@ -64,107 +60,92 @@ class Router
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function get(string $uri, $callback, array $params = []): Router
+    public function get(string $uri, mixed $callback): static
     {
-        return $this->add('GET', $uri, $callback, $params);
+        return $this->add('GET', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function post(string $uri, $callback, array $params = []): Router
+    public function post(string $uri, mixed $callback): static
     {
-        return $this->add('POST', $uri, $callback, $params);
+        return $this->add('POST', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function put(string $uri, $callback, array $params = []): Router
+    public function put(string $uri, mixed $callback): static
     {
-        return $this->add('PUT', $uri, $callback, $params);
+        return $this->add('PUT', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function patch(string $uri, $callback, array $params = []): Router
+    public function patch(string $uri, mixed $callback): static
     {
-        return $this->add('PATCH', $uri, $callback, $params);
+        return $this->add('PATCH', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function delete(string $uri, $callback, array $params = []): Router
+    public function delete(string $uri, mixed $callback): static
     {
-        return $this->add('DELETE', $uri, $callback, $params);
+        return $this->add('DELETE', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function options(string $uri, $callback, array $params = []): Router
+    public function options(string $uri, mixed $callback): static
     {
-        return $this->add('OPTIONS', $uri, $callback, $params);
+        return $this->add('OPTIONS', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function head(string $uri, $callback, array $params = []): Router
+    public function head(string $uri, mixed $callback): static
     {
-        return $this->add('HEAD', $uri, $callback, $params);
+        return $this->add('HEAD', $uri, $callback);
     }
 
     /**
      * @param string $uri
      * @param mixed $callback
-     * @param array $params
-     * @return Router
+     * @return static
      */
-    public function cli(string $uri, $callback, array $params = []): Router
+    public function cli(string $uri, mixed $callback): static
     {
-        return $this->add('CLI', $uri, $callback, $params);
+        return $this->add('CLI', $uri, $callback);
     }
 
     // -------------------------------------------------------------------------
 
-    public function uris(): array
-    {
-        $uris = [];
-        foreach ($this->routes as $method => $routes) {
-            foreach ($routes as $uri => $item) {
-                $uris[$method][] =  $uri;
-            }
-        }
-
-        return $uris;
-    }
-
-    // -------------------------------------------------------------------------
-
+    /**
+     * Finds a route
+     *
+     * @param string $method
+     * @param string $uri
+     * @return Route
+     */
     public function find(string $method, string $uri): Route
     {
         $uri = self::normalizeUri($uri);
@@ -174,14 +155,11 @@ class Router
         }
 
         if (($route = $this->routes[$method][$uri] ?? null)) {
-            return new Route($route['uri'], $route['callback']);
+            return $route;
         }
 
-        foreach ($this->routes[$method] as $r) {
-
-            $this->route = $r;
-
-            if (($route = $this->match($uri))) {
+        foreach ($this->routes[$method] as $route) {
+            if (($this->match($uri, $route))) {
                 return $route;
             }
         }
@@ -193,44 +171,28 @@ class Router
 
     protected static function normalizeUri(string $uri): string
     {
-        return trim($uri, '/');
+        return  '/' . trim($uri, '/');
     }
 
-    private function parseParams(array $params): array
-    {
-        foreach ($params as $name => $regex) {
-            $regex = $this->wildcards[$regex] ?? $regex;
-            $params[$name] = str_replace('(', '(?:', $regex);
-        }
-
-        return $params;
-    }
-
-    private function match(string $uri): ?Route
+    private function match(string $uri, Route $route): bool
     {
         $matches = [];
-        if (!preg_match($this->buildRegex(), $uri, $matches)) {
-            return null;
+        if (!preg_match($this->buildRegex($route), $uri, $matches)) {
+            return false;
         }
 
-        $matches = self::buildMatches($matches);
+        $route->setArguments(self::buildMatches($matches));
 
-        return new Route($this->route['uri'], $this->route['callback'], $matches);
+        return true;
     }
 
-    private function buildRegex()
+    private function buildRegex(Route $route): string
     {
-        $regex = $this->route['uri'];
-        $regex = str_replace('#', "\#", $regex);
-        $regex = preg_replace_callback('#:([\w]+)#', [$this, 'paramMatch'], $regex);
+        $regex = $route->uri();
+        $regex = strtr($regex, $this->wildcards);
         $regex = "#^{$regex}$#i";
 
         return $regex;
-    }
-
-    private function paramMatch(array $matches): string
-    {
-        return '(' . ($this->route['params'][$matches[1]] ?? '[^/]+') . ')';
     }
 
     /**
