@@ -13,6 +13,6 @@ class Runner implements RunnerInterface
             return call_user_func_array($route->callback(), $route->arguments());
         }
 
-        throw new RouterException($route->uri . ' is not callable');
+        throw new RouterException($route->uri() . ' is not callable');
     }
 }
